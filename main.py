@@ -17,6 +17,11 @@ from mutagen.id3 import ID3, TIT2, TPE1, TALB, APIC, error
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 import ytmusicapi
+import sys
+import io
+
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+
 
 client_id = "3098f40cc6994d08a10c4579724b7224"
 client_secret = "60e1dbeb6ea94249af8beef0f4b6e5a2"
@@ -186,7 +191,7 @@ for element in album_elements:
 print("len(albumnames) = " + str(len(albumnames)))
 
 for album in albumnames: 
-    print("-> " + album)
+    print("-> " + album.encode('ascii', 'ignore').decode('ascii'))
 
 albumcount = len(albumnames)
 
@@ -262,7 +267,15 @@ for song in namesandartists:
 
     ytm = ytmusicapi.YTMusic()
     query = song
-    videoId = ytm.search(query)[0]["videoId"]
+    search_results = ytm.search(query)
+    print(search_results)
+    for result in search_results:
+        if isinstance(result, dict) and 'resultType' in result:
+            if result['resultType'] == 'song' and result['category'] in ['Songs', 'Top result']:  # Ensure it's a song
+                print(f"Video ID: {result['videoId']}")
+                videoId = result['videoId']
+                break
+
     video_url = f"https://www.youtube.com/watch?v={videoId}"
 
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
