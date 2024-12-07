@@ -231,7 +231,7 @@ ydl_opts = {
     #'cookiesfrombrowser': ('brave',)
 }
 
-savedir = f"C:/Users/ertug/Music/{re.sub(r'[<>:"/\\|?*.]', "", plname.text)}"
+savedir = f"Music/{re.sub(r'[<>:"/\\|?*.]', "", plname.text)}"
 songlist = savedir + "/list.txt"
 
 if not os.path.exists(savedir):
@@ -335,7 +335,7 @@ for album in albumnames:
 
     album_id = get_album_id_from_track_id(trackids[i])
     albumimgurl = get_album_image(album_id)
-    albumsavedir = f"C:/Users/ertug/Music/{re.sub(r'[<>:"/\\|?*.]', "", plname.text)}/album_covers"
+    albumsavedir = f"Music/{re.sub(r'[<>:"/\\|?*.]', "", plname.text)}/album_covers"
     songname = re.sub(r'[\\/*?:"<>|.İ]', "", namesandartists[i])
     album_file_name = re.sub(r'[<>:"/\\|?*İ]', "", (os.path.splitext(songname)[0] + '.jpg'))
     album_file_path = os.path.join(albumsavedir, album_file_name)

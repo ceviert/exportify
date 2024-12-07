@@ -1,2 +1,8 @@
 # ignore virual environment directory
 venv/
+
+# vscode stuff
+.cache
+
+# where your music will be saved
+Music/
