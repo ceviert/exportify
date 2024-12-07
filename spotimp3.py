@@ -1,0 +1,345 @@
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+import time
+from webdriver_manager.chrome import ChromeDriverManager
+from pytube import YouTube
+from pytube import Search
+import os
+from pydub import AudioSegment
+import yt_dlp
+import re
+from datetime import datetime
+import spotipy
+from spotipy.oauth2 import SpotifyClientCredentials
+import requests
+from mutagen.mp3 import MP3
+from mutagen.id3 import ID3, TIT2, TPE1, TALB, APIC, error
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+import ytmusicapi
+
+client_id = "3098f40cc6994d08a10c4579724b7224"
+client_secret = "60e1dbeb6ea94249af8beef0f4b6e5a2"
+
+sp = spotipy.Spotify(client_credentials_manager=SpotifyClientCredentials(client_id=client_id, client_secret=client_secret))
+
+def get_first_part_before_comma(input_string):
+    return input_string.split(',', 1)[0]
+
+def split_artist_and_song(input_string):
+    # Split the input string by the hyphen and strip any surrounding whitespace
+    parts = input_string.split(" - ")
+    if len(parts) == 2:
+        artist, song = parts[0].strip(), parts[1].strip()
+        return artist, song
+    else:
+        # Handle cases where the format is not as expected
+        print("String format is not 'Artist - Song Title'.")
+        return None, None
+
+def get_first_part_before_dash(input_string):
+    return input_string.split('-', 1)[0]
+
+def get_album_id_from_track_id(track_id):
+    """
+    Given a Spotify track ID, returns the album ID for that track.
+    
+    Args:
+        track_id (str): The Spotify ID of the track.
+        
+    Returns:
+        str: The Spotify ID of the album containing the track.
+    """
+    try:
+        # Fetch track details
+        track_info = sp.track(track_id)
+        # Retrieve and return the album ID
+        album_id = track_info['album']['id']
+        return album_id
+    except spotipy.exceptions.SpotifyException as e:
+        print(f"Error fetching album ID: {e}")
+        return None
+
+def get_album_image(album_id):
+    album = sp.album(album_id)
+    if album and album['images']:
+        image_url = album['images'][0]['url']  # First image is usually the largest
+        print(f"Image URL: {image_url}")
+        return image_url
+    else:
+        print("No images found for this album.")
+        return None
+    
+def download_image(url, path, retries=3):
+
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+
+    for attempt in range(retries):
+        try:
+            response = requests.get(url, timeout=10)
+            response.raise_for_status()  
+            with open(path, 'wb') as file:
+                file.write(response.content)
+            print(f"Downloaded image to {path}")
+            break  
+        except requests.exceptions.RequestException as e:
+            print(f"Attempt {attempt + 1} failed: {e}")
+            time.sleep(2)  # Wait before retrying
+    else:
+        print("Failed to download image after multiple attempts.")
+
+def tag_mp3(mp3_path, artist, title, album, cover_art_path):
+    # Load the MP3 file
+    audio = MP3(mp3_path, ID3=ID3)
+    
+    # Add ID3 tags if they don't exist
+    try:
+        audio.add_tags()
+    except error:
+        pass  # ID3 tags already exist
+    
+    # Set title
+    audio.tags["TIT2"] = TIT2(encoding=3, text=title)
+    
+    # Set artist
+    audio.tags["TPE1"] = TPE1(encoding=3, text=artist)
+    
+    # Set album
+    audio.tags["TALB"] = TALB(encoding=3, text=album)
+    
+    # Embed album cover art
+    with open(cover_art_path, "rb") as img_file:
+        audio.tags["APIC"] = APIC(
+            encoding=3,             # UTF-8 encoding
+            mime="image/jpeg",      # or "image/png" for PNG images
+            type=3,                 # 3 is for album cover art
+            desc="Cover",
+            data=img_file.read()    # Read image data and embed it
+        )
+    
+    # Save changes
+    audio.save()
+    print(f"Tagged '{mp3_path}' with artist '{artist}', title '{title}', album '{album}', and cover art.")
+
+plurl = input("provide the playlist url >> ")
+
+start_time = time.time()
+
+print("launching webdriver")
+driver = webdriver.Chrome()
+driver.get('https://www.chosic.com/spotify-playlist-analyzer/')
+driver.implicitly_wait(10)
+
+inputfield = driver.find_element(By.ID, 'search-word')
+inputfield.send_keys(plurl)
+analyzebutton = driver.find_element(By.ID, 'analyze')
+analyzebutton.click()
+print("analyzing playlist...")
+time.sleep(2)
+while True:
+    loadingbar= driver.find_element(By.ID, 'myBar')
+    print(loadingbar.text)
+    if len(loadingbar.text) == 0:
+        break
+print("analyzing done.")
+
+plname = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.CLASS_NAME, "pl-name")))  # Replace with correct selector
+print("playlist name is" , plname.text)
+
+tempsongcount = driver.find_element(By.CLASS_NAME, 'total-tracks')
+time.sleep(2)
+
+templist = []
+for element in tempsongcount.text:
+    if element == ' ':
+        break
+    templist.append(element)
+songcounttext = "".join(templist)
+songcount = int(songcounttext)
+print("playlist has " , songcount , " songs.")
+
+scrollto = driver.find_element(By.ID, 'all-tracks-table')
+driver.execute_script("arguments[0].scrollIntoView(true);", scrollto)
+time.sleep(3)
+
+songnames = driver.find_elements(By.CLASS_NAME, 'td-name-text.check-table-song')
+# print(len(songnames))
+songcount = min(songcount, len(songnames))
+
+tempforartist = driver.find_elements(By.CLASS_NAME, 'td-number.oferflow')
+
+artists = []
+i = 0
+for element in tempforartist:
+    if i % 4 == 0:
+        artists.append(element)
+    i += 1
+# print(len(artists))
+
+album_elements = driver.find_elements(By.XPATH, '//*[@id="tracks-table"]/tbody/tr/td[8]')
+
+albumnames = []
+i = 0
+for element in album_elements:
+    albumnames.append(element.text)
+
+print("len(albumnames) = " + str(len(albumnames)))
+
+for album in albumnames: 
+    print("-> " + album)
+
+albumcount = len(albumnames)
+
+year_elements = driver.find_elements(By.XPATH, '//*[@id="tracks-table"]/tbody/tr/td[9]')
+
+yearlist = []
+i = 0
+for element in year_elements:
+    yearlist.append(get_first_part_before_dash(element.text))
+
+for year in yearlist: 
+    print("-> " + year)
+
+trackidelements = driver.find_elements(By.XPATH, '//*[@id="tracks-table"]/tbody/tr/td[22]')
+
+trackids = []
+i = 0
+for element in trackidelements:
+    trackids.append(element.text)
+
+for trackid in trackids: 
+    print("-> " + trackid)
+
+namesandartists = []
+i = 0
+while i < songcount:
+    full = artists[i].text + " - " + songnames[i].text
+    namesandartists.append(full)
+    i += 1
+print("song names and artists scraped, starting download...")
+time.sleep(2)
+
+ydl_opts = {
+    'format': 'bestaudio/best',
+    'outtmpl': '%(title)s.%(ext)s',
+    'cookies': 'C:/Users/ertug/Desktop/cevi/cs/py/spotimp3/cookies.txt',
+    #'cookiesfrombrowser': ('brave',)
+}
+
+savedir = f"C:/Users/ertug/Music/{re.sub(r'[<>:"/\\|?*.]', "", plname.text)}"
+songlist = savedir + "/list.txt"
+
+if not os.path.exists(savedir):
+    os.makedirs(savedir)
+
+with open(songlist, "a+", encoding="utf-8") as file:
+    file.seek(0)
+    lines = file.read().splitlines()
+    if lines:
+        lines.pop()
+    print("Lines read from file:", lines)
+
+with open(songlist, "w", encoding="utf-8") as file:
+    if plname.text not in lines:
+        file.write(plname.text + "\n=================\n")
+    for line in lines:
+        file.write(line + "\n") 
+
+downloaded = []
+
+i = 0
+saved = 0
+for song in namesandartists:
+    
+    if song in lines:
+        print(song + " ALREADY DONWLOADED")
+        i += 1
+        saved += 1
+        print("===============================================")
+        print("---OVERALL PROGRESS--- >>> " , i * 100 / songcount , "%")
+        print("===============================================")
+        continue
+
+    ytm = ytmusicapi.YTMusic()
+    query = song
+    videoId = ytm.search(query)[0]["videoId"]
+    video_url = f"https://www.youtube.com/watch?v={videoId}"
+
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        print(f"Downloading video with ID: {videoId}")
+        ydl.download([video_url])  # Download the video using its ID
+        info_dict = ydl.extract_info(video_url, download=False)  # Retrieve metadata without downloading again
+        video_file = ydl.prepare_filename(info_dict)
+
+    songname = re.sub(r'[\\/*?:"<>|.İ]', "", namesandartists[i])
+    mp3_file_name = re.sub(r'[<>:"/\\|?*İ]', "", (os.path.splitext(songname)[0] + '.mp3'))
+    mp3_file_path = os.path.join(savedir, mp3_file_name)
+    AudioSegment.from_file(video_file).export(mp3_file_path, format='mp3')
+    os.remove(video_file)
+    i += 1
+    saved += 1
+
+    downloaded.append(song)
+
+    print("===============================================")
+    print("---OVERALL PROGRESS--- >>> " , i * 100 / songcount , "%")
+    print("===============================================")
+
+try:
+    with open(songlist, "r", encoding="utf-8") as file:
+        existing_songs = file.read().splitlines()
+except FileNotFoundError:
+    existing_songs = []
+
+with open(songlist, "a", encoding="utf-8") as file:
+    for song in downloaded:
+        if song not in existing_songs:
+            file.write(song + "\n")
+    now = datetime.now()
+    formatted_date = now.strftime("%Y-%m-%d %H:%M:%S")
+    file.write("\nLast updated at " + formatted_date + "\n")
+
+end_time = time.time()
+time_elapsed = end_time - start_time
+print("Time elapsed => " + str(time_elapsed) + " seconds.")
+
+print("DOWNLOADS ARE DONE. STARTING THE TAGGING PROCESS...")
+
+albumandartistlist = [None] * len(albumnames)  # Initialize with the same length
+
+for i in range(len(albumnames)):
+    if "," in artists[i].text:
+        artist = get_first_part_before_comma(artists[i].text) + " various"
+    else:
+        artist = artists[i].text
+    albumandartistlist[i] = " ".join([albumnames[i], artist])
+
+i = 0
+tagged = 0
+for album in albumnames:
+
+    print(album)
+
+    album_id = get_album_id_from_track_id(trackids[i])
+    albumimgurl = get_album_image(album_id)
+    albumsavedir = f"C:/Users/ertug/Music/{re.sub(r'[<>:"/\\|?*.]', "", plname.text)}/album_covers"
+    songname = re.sub(r'[\\/*?:"<>|.İ]', "", namesandartists[i])
+    album_file_name = re.sub(r'[<>:"/\\|?*İ]', "", (os.path.splitext(songname)[0] + '.jpg'))
+    album_file_path = os.path.join(albumsavedir, album_file_name)
+
+    songname = re.sub(r'[\\/*?:"<>|.İ]', "", namesandartists[i])
+    mp3_file_name = re.sub(r'[<>:"/\\|?*İ]', "", (os.path.splitext(songname)[0] + '.mp3'))
+    mp3_file_path = os.path.join(savedir, mp3_file_name)
+    
+    download_image(albumimgurl, album_file_path)
+
+    tag_mp3(mp3_file_path, artists[i].text, songnames[i].text, albumnames[i], album_file_path)
+
+    i += 1
+    tagged += 1
+
+    print("===============================================")
+    print("---OVERALL PROGRESS--- >>> " , i * 100 / albumcount , "%")
+    print("===============================================")
+
+driver.quit()
