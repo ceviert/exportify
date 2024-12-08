@@ -16,6 +16,7 @@ from mutagen.mp3 import MP3
 from mutagen.id3 import ID3, TIT2, TPE1, TALB, APIC, error
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.chrome.options import Options
 import ytmusicapi
 import sys
 import io
@@ -133,7 +134,11 @@ plurl = input("provide the playlist url >> ")
 start_time = time.time()
 
 print("launching webdriver")
-driver = webdriver.Chrome()
+options = Options()
+# options.add_argument('--headless')
+options.add_argument('--disable-gpu')
+options.add_argument('--no-sandbox')
+driver = webdriver.Chrome(options=options)
 driver.get('https://www.chosic.com/spotify-playlist-analyzer/')
 driver.implicitly_wait(10)
 
