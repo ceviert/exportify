@@ -34,7 +34,9 @@ pip install -r requirements.txt
 
 ## USAGE
 
-Run the script from terminal with:
+- Make sure that the browser you've set is NOT running while the script runs.
+
+- Run the script from terminal with:
 ```bash
 py main.py
 ```

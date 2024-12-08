@@ -134,11 +134,7 @@ plurl = input("provide the playlist url >> ")
 start_time = time.time()
 
 print("launching webdriver")
-options = Options()
-# options.add_argument('--headless')
-options.add_argument('--disable-gpu')
-options.add_argument('--no-sandbox')
-driver = webdriver.Chrome(options=options)
+driver = webdriver.Chrome()
 driver.get('https://www.chosic.com/spotify-playlist-analyzer/')
 driver.implicitly_wait(10)
 
