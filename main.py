@@ -229,8 +229,8 @@ time.sleep(2)
 ydl_opts = {
     'format': 'bestaudio/best',
     'outtmpl': '%(title)s.%(ext)s',
-    'cookies': 'C:/Users/ertug/Desktop/cevi/cs/py/spotimp3/cookies.txt',
-    #'cookiesfrombrowser': ('brave',)
+    # 'cookies': 'cookies.txt',
+    'cookiesfrombrowser': (os.getenv("BROWSER_NAME"),)
 }
 
 savedir = f"Music/{re.sub(r'[<>:"/\\|?*.]', "", plname.text)}"
