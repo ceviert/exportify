@@ -19,12 +19,14 @@ from selenium.webdriver.support import expected_conditions as EC
 import ytmusicapi
 import sys
 import io
+from dotenv import load_dotenv
 
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 
+load_dotenv()
 
-client_id = "3098f40cc6994d08a10c4579724b7224"
-client_secret = "60e1dbeb6ea94249af8beef0f4b6e5a2"
+client_id = os.getenv("SPOTIFY_CLIENT_ID")
+client_secret = os.getenv("SPOTIFY_CLIENT_SECRET")
 
 sp = spotipy.Spotify(client_credentials_manager=SpotifyClientCredentials(client_id=client_id, client_secret=client_secret))
 

@@ -1,5 +1,6 @@
-# ignore virual environment directory
+# ignore environment
 venv/
+.env
 
 # vscode stuff
 .cache
