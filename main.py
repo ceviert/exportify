@@ -31,17 +31,22 @@ client_secret = os.getenv("SPOTIFY_CLIENT_SECRET")
 
 sp = spotipy.Spotify(client_credentials_manager=SpotifyClientCredentials(client_id=client_id, client_secret=client_secret))
 
+ydl_opts = {
+    'format': 'bestaudio/best',
+    'outtmpl': '%(title)s.%(ext)s',
+    # 'cookies': 'cookies.txt',
+    # 'cookiesfrombrowser': (os.getenv("BROWSER_NAME"),)
+}
+
 def get_first_part_before_comma(input_string):
     return input_string.split(',', 1)[0]
 
 def split_artist_and_song(input_string):
-    # Split the input string by the hyphen and strip any surrounding whitespace
     parts = input_string.split(" - ")
     if len(parts) == 2:
         artist, song = parts[0].strip(), parts[1].strip()
         return artist, song
     else:
-        # Handle cases where the format is not as expected
         print("String format is not 'Artist - Song Title'.")
         return None, None
 
@@ -49,15 +54,6 @@ def get_first_part_before_dash(input_string):
     return input_string.split('-', 1)[0]
 
 def get_album_id_from_track_id(track_id):
-    """
-    Given a Spotify track ID, returns the album ID for that track.
-    
-    Args:
-        track_id (str): The Spotify ID of the track.
-        
-    Returns:
-        str: The Spotify ID of the album containing the track.
-    """
     try:
         # Fetch track details
         track_info = sp.track(track_id)
@@ -71,7 +67,7 @@ def get_album_id_from_track_id(track_id):
 def get_album_image(album_id):
     album = sp.album(album_id)
     if album and album['images']:
-        image_url = album['images'][0]['url']  # First image is usually the largest
+        image_url = album['images'][0]['url']
         print(f"Image URL: {image_url}")
         return image_url
     else:
@@ -97,37 +93,44 @@ def download_image(url, path, retries=3):
         print("Failed to download image after multiple attempts.")
 
 def tag_mp3(mp3_path, artist, title, album, cover_art_path):
-    # Load the MP3 file
     audio = MP3(mp3_path, ID3=ID3)
     
-    # Add ID3 tags if they don't exist
     try:
         audio.add_tags()
     except error:
-        pass  # ID3 tags already exist
+        pass
     
-    # Set title
     audio.tags["TIT2"] = TIT2(encoding=3, text=title)
     
-    # Set artist
     audio.tags["TPE1"] = TPE1(encoding=3, text=artist)
     
-    # Set album
     audio.tags["TALB"] = TALB(encoding=3, text=album)
     
-    # Embed album cover art
     with open(cover_art_path, "rb") as img_file:
         audio.tags["APIC"] = APIC(
-            encoding=3,             # UTF-8 encoding
-            mime="image/jpeg",      # or "image/png" for PNG images
-            type=3,                 # 3 is for album cover art
+            encoding=3,
+            mime="image/jpeg",
+            type=3,
             desc="Cover",
-            data=img_file.read()    # Read image data and embed it
+            data=img_file.read()
         )
     
-    # Save changes
     audio.save()
     print(f"Tagged '{mp3_path}' with artist '{artist}', title '{title}', album '{album}', and cover art.")
+
+def song_to_youtube_url(song):
+    ytm = ytmusicapi.YTMusic()
+    query = song
+    search_results = ytm.search(query)
+    # print(search_results)
+    for result in search_results:
+        if isinstance(result, dict) and 'resultType' in result:
+            if result['resultType'] == 'song' and result['category'] in ['Songs', 'Top result']:  # Ensure it's a song
+                print(f"Video ID: {result['videoId']}")
+                videoId = result['videoId']
+                break
+
+    return f"https://www.youtube.com/watch?v={videoId}"
 
 plurl = input("provide the playlist url >> ")
 
@@ -193,7 +196,8 @@ for element in album_elements:
 
 print("len(albumnames) = " + str(len(albumnames)))
 
-for album in albumnames: 
+for album in albumnames:
+    time.sleep(0.5)
     print("-> " + album.encode('ascii', 'ignore').decode('ascii'))
 
 albumcount = len(albumnames)
@@ -205,7 +209,8 @@ i = 0
 for element in year_elements:
     yearlist.append(get_first_part_before_dash(element.text))
 
-for year in yearlist: 
+for year in yearlist:
+    time.sleep(0.5)
     print("-> " + year)
 
 trackidelements = driver.find_elements(By.XPATH, '//*[@id="tracks-table"]/tbody/tr/td[22]')
@@ -215,7 +220,8 @@ i = 0
 for element in trackidelements:
     trackids.append(element.text)
 
-for trackid in trackids: 
+for trackid in trackids:
+    time.sleep(0.5)
     print("-> " + trackid)
 
 namesandartists = []
@@ -226,13 +232,6 @@ while i < songcount:
     i += 1
 print("song names and artists scraped, starting download...")
 time.sleep(2)
-
-ydl_opts = {
-    'format': 'bestaudio/best',
-    'outtmpl': '%(title)s.%(ext)s',
-    # 'cookies': 'cookies.txt',
-    'cookiesfrombrowser': (os.getenv("BROWSER_NAME"),)
-}
 
 savedir = f"Music/{re.sub(r'[<>:"/\\|?*.]', "", plname.text)}"
 songlist = savedir + "/list.txt"
@@ -268,23 +267,12 @@ for song in namesandartists:
         print("===============================================")
         continue
 
-    ytm = ytmusicapi.YTMusic()
-    query = song
-    search_results = ytm.search(query)
-    print(search_results)
-    for result in search_results:
-        if isinstance(result, dict) and 'resultType' in result:
-            if result['resultType'] == 'song' and result['category'] in ['Songs', 'Top result']:  # Ensure it's a song
-                print(f"Video ID: {result['videoId']}")
-                videoId = result['videoId']
-                break
-
-    video_url = f"https://www.youtube.com/watch?v={videoId}"
+    video_url = song_to_youtube_url(song)
 
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        print(f"Downloading video with ID: {videoId}")
-        ydl.download([video_url])  # Download the video using its ID
-        info_dict = ydl.extract_info(video_url, download=False)  # Retrieve metadata without downloading again
+        print(song + f"\nDownloading video with ID: {videoId}")
+        ydl.download([video_url])
+        info_dict = ydl.extract_info(video_url, download=False)
         video_file = ydl.prepare_filename(info_dict)
 
     songname = re.sub(r'[\\/*?:"<>|.İ]', "", namesandartists[i])
@@ -321,7 +309,7 @@ print("Time elapsed => " + str(time_elapsed) + " seconds.")
 
 print("DOWNLOADS ARE DONE. STARTING THE TAGGING PROCESS...")
 
-albumandartistlist = [None] * len(albumnames)  # Initialize with the same length
+albumandartistlist = [None] * len(albumnames)
 
 for i in range(len(albumnames)):
     if "," in artists[i].text:
