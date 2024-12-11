@@ -118,20 +118,6 @@ def tag_mp3(mp3_path, artist, title, album, cover_art_path):
     audio.save()
     print(f"Tagged '{mp3_path}' with artist '{artist}', title '{title}', album '{album}', and cover art.")
 
-def song_to_youtube_url(song):
-    ytm = ytmusicapi.YTMusic()
-    query = song
-    search_results = ytm.search(query)
-    # print(search_results)
-    for result in search_results:
-        if isinstance(result, dict) and 'resultType' in result:
-            if result['resultType'] == 'song' and result['category'] in ['Songs', 'Top result']:  # Ensure it's a song
-                print(f"Video ID: {result['videoId']}")
-                videoId = result['videoId']
-                break
-
-    return f"https://www.youtube.com/watch?v={videoId}"
-
 plurl = input("provide the playlist url >> ")
 
 start_time = time.time()
@@ -267,7 +253,18 @@ for song in namesandartists:
         print("===============================================")
         continue
 
-    video_url = song_to_youtube_url(song)
+    ytm = ytmusicapi.YTMusic()
+    query = song
+    search_results = ytm.search(query)
+    # print(search_results)
+    for result in search_results:
+        if isinstance(result, dict) and 'resultType' in result:
+            if result['resultType'] == 'song' and result['category'] in ['Songs', 'Top result']:  # Ensure it's a song
+                print(f"Video ID: {result['videoId']}")
+                videoId = result['videoId']
+                break
+
+    video_url = f"https://www.youtube.com/watch?v={videoId}"
 
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         print(song + f"\nDownloading video with ID: {videoId}")
