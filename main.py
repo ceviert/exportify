@@ -21,6 +21,7 @@ import ytmusicapi
 import sys
 import io
 from dotenv import load_dotenv
+import json
 
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 
@@ -40,18 +41,6 @@ ydl_opts = {
 
 def get_first_part_before_comma(input_string):
     return input_string.split(',', 1)[0]
-
-def split_artist_and_song(input_string):
-    parts = input_string.split(" - ")
-    if len(parts) == 2:
-        artist, song = parts[0].strip(), parts[1].strip()
-        return artist, song
-    else:
-        print("String format is not 'Artist - Song Title'.")
-        return None, None
-
-def get_first_part_before_dash(input_string):
-    return input_string.split('-', 1)[0]
 
 def get_album_id_from_track_id(track_id):
     try:
@@ -88,7 +77,7 @@ def download_image(url, path, retries=3):
             break  
         except requests.exceptions.RequestException as e:
             print(f"Attempt {attempt + 1} failed: {e}")
-            time.sleep(2)  # Wait before retrying
+            time.sleep(2)
     else:
         print("Failed to download image after multiple attempts.")
 
@@ -188,17 +177,6 @@ for album in albumnames:
 
 albumcount = len(albumnames)
 
-year_elements = driver.find_elements(By.XPATH, '//*[@id="tracks-table"]/tbody/tr/td[9]')
-
-yearlist = []
-i = 0
-for element in year_elements:
-    yearlist.append(get_first_part_before_dash(element.text))
-
-for year in yearlist:
-    time.sleep(0.5)
-    print("-> " + year)
-
 trackidelements = driver.find_elements(By.XPATH, '//*[@id="tracks-table"]/tbody/tr/td[22]')
 
 trackids = []
@@ -240,12 +218,15 @@ with open(songlist, "w", encoding="utf-8") as file:
 
 downloaded = []
 
+with open("songcache.json", "r") as file:
+    loaded_data = json.load(file)
+
 i = 0
 saved = 0
-for song in namesandartists:
+for song, trackid in zip(namesandartists, trackids):
     
     if song in lines:
-        print(song + " ALREADY DONWLOADED")
+        print(song + " ALREADY DOWNLOADED")
         i += 1
         saved += 1
         print("===============================================")
@@ -253,16 +234,20 @@ for song in namesandartists:
         print("===============================================")
         continue
 
-    ytm = ytmusicapi.YTMusic()
-    query = song
-    search_results = ytm.search(query)
-    # print(search_results)
-    for result in search_results:
-        if isinstance(result, dict) and 'resultType' in result:
-            if result['resultType'] == 'song' and result['category'] in ['Songs', 'Top result']:  # Ensure it's a song
-                print(f"Video ID: {result['videoId']}")
-                videoId = result['videoId']
-                break
+    if trackid in loaded_data:
+        videoId = loaded_data[trackid]
+
+    else:
+        ytm = ytmusicapi.YTMusic()
+        query = song
+        search_results = ytm.search(query)
+        # print(search_results)
+        for result in search_results:
+            if isinstance(result, dict) and 'resultType' in result:
+                if result['resultType'] == 'song' and result['category'] in ['Songs', 'Top result']:  # Ensure it's a song
+                    print(f"Video ID: {result['videoId']}")
+                    videoId = result['videoId']
+                    break
 
     video_url = f"https://www.youtube.com/watch?v={videoId}"
 
@@ -305,15 +290,6 @@ time_elapsed = end_time - start_time
 print("Time elapsed => " + str(time_elapsed) + " seconds.")
 
 print("DOWNLOADS ARE DONE. STARTING THE TAGGING PROCESS...")
-
-albumandartistlist = [None] * len(albumnames)
-
-for i in range(len(albumnames)):
-    if "," in artists[i].text:
-        artist = get_first_part_before_comma(artists[i].text) + " various"
-    else:
-        artist = artists[i].text
-    albumandartistlist[i] = " ".join([albumnames[i], artist])
 
 i = 0
 tagged = 0
