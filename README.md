@@ -27,14 +27,11 @@ pip install -r requirements.txt
     ```env
     SPOTIPY_CLIENT_ID=your_client_id
     SPOTIPY_CLIENT_SECRET=your_client_secret
-    BROWSER_NAME=your_browser_name
     ```
     - Change them according to your client id, client secret and browser name (`chrome` for Chrome, `brave` for Brave etc.)
     - Rename the file `.env.example` to `.env`.
 
 ## USAGE
-
-- Make sure that the browser you've set is NOT running while the script runs.
 
 - Run the script from terminal with:
 ```bash
