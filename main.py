@@ -22,6 +22,7 @@ import sys
 import io
 from dotenv import load_dotenv
 import json
+from unidecode import unidecode
 
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 
@@ -50,17 +51,17 @@ def get_album_id_from_track_id(track_id):
         album_id = track_info['album']['id']
         return album_id
     except spotipy.exceptions.SpotifyException as e:
-        print(f"Error fetching album ID: {e}")
+        print(f"Error fetching album ID: {e}", flush=True)
         return None
 
 def get_album_image(album_id):
     album = sp.album(album_id)
     if album and album['images']:
         image_url = album['images'][0]['url']
-        print(f"Image URL: {image_url}")
+        print(f"Image URL: {image_url}", flush=True)
         return image_url
     else:
-        print("No images found for this album.")
+        print("No images found for this album.", flush=True)
         return None
     
 def download_image(url, path, retries=3):
@@ -73,13 +74,13 @@ def download_image(url, path, retries=3):
             response.raise_for_status()  
             with open(path, 'wb') as file:
                 file.write(response.content)
-            print(f"Downloaded image to {path}")
+            print(f"Downloaded image to {path}", flush=True)
             break  
         except requests.exceptions.RequestException as e:
-            print(f"Attempt {attempt + 1} failed: {e}")
+            print(f"Attempt {attempt + 1} failed: {e}", flush=True)
             time.sleep(2)
     else:
-        print("Failed to download image after multiple attempts.")
+        print("Failed to download image after multiple attempts.", flush=True)
 
 def tag_mp3(mp3_path, artist, title, album, cover_art_path):
     audio = MP3(mp3_path, ID3=ID3)
@@ -105,13 +106,13 @@ def tag_mp3(mp3_path, artist, title, album, cover_art_path):
         )
     
     audio.save()
-    print(f"Tagged '{mp3_path}' with artist '{artist}', title '{title}', album '{album}', and cover art.")
+    print(f"Tagged '{mp3_path}' with artist '{artist}', title '{title}', album '{album}', and cover art.", flush=True)
 
 plurl = input("provide the playlist url >> ")
 
 start_time = time.time()
 
-print("launching webdriver")
+print("launching webdriver", flush=True)
 driver = webdriver.Chrome()
 driver.get('https://www.chosic.com/spotify-playlist-analyzer/')
 driver.implicitly_wait(10)
@@ -120,17 +121,17 @@ inputfield = driver.find_element(By.ID, 'search-word')
 inputfield.send_keys(plurl)
 analyzebutton = driver.find_element(By.ID, 'analyze')
 analyzebutton.click()
-print("analyzing playlist...")
+print("analyzing playlist...", flush=True)
 time.sleep(2)
 while True:
     loadingbar= driver.find_element(By.ID, 'myBar')
-    print(loadingbar.text)
+    print(loadingbar.text, flush=True)
     if len(loadingbar.text) == 0:
         break
-print("analyzing done.")
+print("analyzing done.", flush=True)
 
 plname = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.CLASS_NAME, "pl-name")))  # Replace with correct selector
-print("playlist name is" , plname.text)
+print("playlist name is" , plname.text, flush=True)
 
 tempsongcount = driver.find_element(By.CLASS_NAME, 'total-tracks')
 time.sleep(2)
@@ -142,7 +143,7 @@ for element in tempsongcount.text:
     templist.append(element)
 songcounttext = "".join(templist)
 songcount = int(songcounttext)
-print("playlist has " , songcount , " songs.")
+print("playlist has " , songcount , " songs.", flush=True)
 
 scrollto = driver.find_element(By.ID, 'all-tracks-table')
 driver.execute_script("arguments[0].scrollIntoView(true);", scrollto)
@@ -169,11 +170,11 @@ i = 0
 for element in album_elements:
     albumnames.append(element.text)
 
-print("len(albumnames) = " + str(len(albumnames)))
+print("len(albumnames) = " + str(len(albumnames)), flush=True)
 
 for album in albumnames:
-    time.sleep(0.5)
-    print("-> " + album.encode('ascii', 'ignore').decode('ascii'))
+    time.sleep(0.1)
+    print("-> " + unidecode(album), flush=True)
 
 albumcount = len(albumnames)
 
@@ -185,8 +186,8 @@ for element in trackidelements:
     trackids.append(element.text)
 
 for trackid in trackids:
-    time.sleep(0.5)
-    print("-> " + trackid)
+    time.sleep(0.1)
+    print("-> " + trackid, flush=True)
 
 namesandartists = []
 i = 0
@@ -194,7 +195,7 @@ while i < songcount:
     full = artists[i].text + " - " + songnames[i].text
     namesandartists.append(full)
     i += 1
-print("song names and artists scraped, starting download...")
+print("song names and artists scraped, starting download...", flush=True)
 time.sleep(2)
 
 savedir = f"Music/{re.sub(r'[<>:"/\\|?*.]', "", plname.text)}"
@@ -208,7 +209,7 @@ with open(songlist, "a+", encoding="utf-8") as file:
     lines = file.read().splitlines()
     if lines:
         lines.pop()
-    print("Lines read from file:", lines)
+    print("Lines read from file:", lines, flush=True)
 
 with open(songlist, "w", encoding="utf-8") as file:
     if plname.text not in lines:
@@ -226,12 +227,12 @@ saved = 0
 for song, trackid in zip(namesandartists, trackids):
     
     if song in lines:
-        print(song + " ALREADY DOWNLOADED")
+        print(song + " ALREADY DOWNLOADED", flush=True)
         i += 1
         saved += 1
-        print("===============================================")
-        print("---OVERALL PROGRESS--- >>> " , i * 100 / songcount , "%")
-        print("===============================================")
+        print("===============================================", flush=True)
+        print("---OVERALL PROGRESS--- >>> " , i * 100 / songcount , "%", flush=True)
+        print("===============================================", flush=True)
         continue
 
     if trackid in loaded_data:
@@ -245,14 +246,14 @@ for song, trackid in zip(namesandartists, trackids):
         for result in search_results:
             if isinstance(result, dict) and 'resultType' in result:
                 if result['resultType'] == 'song' and result['category'] in ['Songs', 'Top result']:  # Ensure it's a song
-                    print(f"Video ID: {result['videoId']}")
+                    print(f"Video ID: {result['videoId']}", flush=True)
                     videoId = result['videoId']
                     break
 
     video_url = f"https://www.youtube.com/watch?v={videoId}"
 
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        print(song + f"\nDownloading video with ID: {videoId}")
+        print(song + f"\nDownloading video with ID: {videoId}", flush=True)
         ydl.download([video_url])
         info_dict = ydl.extract_info(video_url, download=False)
         video_file = ydl.prepare_filename(info_dict)
@@ -267,9 +268,9 @@ for song, trackid in zip(namesandartists, trackids):
 
     downloaded.append(song)
 
-    print("===============================================")
-    print("---OVERALL PROGRESS--- >>> " , i * 100 / songcount , "%")
-    print("===============================================")
+    print("===============================================", flush=True)
+    print("---OVERALL PROGRESS--- >>> " , i * 100 / songcount , "%", flush=True)
+    print("===============================================", flush=True)
 
 try:
     with open(songlist, "r", encoding="utf-8") as file:
@@ -287,9 +288,11 @@ with open(songlist, "a", encoding="utf-8") as file:
 
 end_time = time.time()
 time_elapsed = end_time - start_time
-print("Time elapsed => " + str(time_elapsed) + " seconds.")
+print("Time elapsed => " + str(time_elapsed) + " seconds.", flush=True)
 
-print("DOWNLOADS ARE DONE. STARTING THE TAGGING PROCESS...")
+
+
+print("\033[1;32;40mDOWNLOADS ARE DONE. STARTING THE TAGGING PROCESS...\033[0m")
 
 i = 0
 tagged = 0
@@ -315,8 +318,8 @@ for album in albumnames:
     i += 1
     tagged += 1
 
-    print("===============================================")
-    print("---OVERALL PROGRESS--- >>> " , i * 100 / albumcount , "%")
-    print("===============================================")
+    print("===============================================", flush=True)
+    print("---OVERALL PROGRESS--- >>> " , i * 100 / albumcount , "%", flush=True)
+    print("===============================================", flush=True)
 
 driver.quit()

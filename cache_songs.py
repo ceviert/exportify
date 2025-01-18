@@ -39,14 +39,14 @@ def get_album_id_from_track_id(track_id):
         album_id = track_info['album']['id']
         return album_id
     except spotipy.exceptions.SpotifyException as e:
-        print(f"Error fetching album ID: {e}")
+        print(f"Error fetching album ID: {e}", flush=True)
         return None
     
-plurl = input("provide the playlist url >> ")
+plurl = input("provide the playlist url >> ", flush=True)
 
 start_time = time.time()
 
-print("launching webdriver")
+print("launching webdriver", flush=True)
 driver = webdriver.Chrome()
 driver.get('https://www.chosic.com/spotify-playlist-analyzer/')
 driver.implicitly_wait(10)
@@ -55,17 +55,17 @@ inputfield = driver.find_element(By.ID, 'search-word')
 inputfield.send_keys(plurl)
 analyzebutton = driver.find_element(By.ID, 'analyze')
 analyzebutton.click()
-print("analyzing playlist...")
+print("analyzing playlist...", flush=True)
 time.sleep(2)
 while True:
-    loadingbar= driver.find_element(By.ID, 'myBar')
-    print(loadingbar.text)
+    loadingbar = driver.find_element(By.ID, 'myBar')
+    print(loadingbar.text, flush=True)
     if len(loadingbar.text) == 0:
         break
-print("analyzing done.")
+print("analyzing done.", flush=True)
 
 plname = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.CLASS_NAME, "pl-name")))
-print("playlist name is" , plname.text)
+print("playlist name is", plname.text, flush=True)
 
 tempsongcount = driver.find_element(By.CLASS_NAME, 'total-tracks')
 time.sleep(2)
@@ -77,7 +77,7 @@ for element in tempsongcount.text:
     templist.append(element)
 songcounttext = "".join(templist)
 songcount = int(songcounttext)
-print("playlist has " , songcount , " songs.")
+print("playlist has", songcount, "songs.", flush=True)
 
 scrollto = driver.find_element(By.ID, 'all-tracks-table')
 driver.execute_script("arguments[0].scrollIntoView(true);", scrollto)
@@ -104,7 +104,7 @@ i = 0
 for element in album_elements:
     albumnames.append(element.text)
 
-print("len(albumnames) = " + str(len(albumnames)))
+print("len(albumnames) = " + str(len(albumnames)), flush=True)
 
 for album in albumnames:
     time.sleep(0.5)
@@ -129,7 +129,7 @@ while i < songcount:
     full = artists[i].text + " - " + songnames[i].text
     namesandartists.append(full)
     i += 1
-print("scrape DONE.")
+print("scrape DONE.", flush=True)
 time.sleep(2)
 
 videoIdList = []
@@ -140,7 +140,7 @@ with open("songcache.json", "r") as file:
 for song, trackid in zip(namesandartists, trackids):
 
     if trackid in loaded_data:
-        print(song + " with track id " + trackid + " already cached.")
+        print(song + " with track id " + trackid + " already cached.", flush=True)
         videoId = loaded_data[trackid]
 
     else:
@@ -151,7 +151,7 @@ for song, trackid in zip(namesandartists, trackids):
         for result in search_results:
             if isinstance(result, dict) and 'resultType' in result:
                 if result['resultType'] == 'song' and result['category'] in ['Songs', 'Top result']:
-                    print(f"Video ID: {result['videoId']}")
+                    print(f"Video ID: {result['videoId']}", flush=True)
                     videoId = result['videoId']
                     break
 
@@ -166,6 +166,6 @@ with open("songcache.json", "w") as file:
 
 end_time = time.time()
 time_elapsed = end_time - start_time
-print("Time elapsed => " + str(time_elapsed) + " seconds.")
+print("Time elapsed => " + str(time_elapsed) + " seconds.", flush=True)
 
 driver.quit()
