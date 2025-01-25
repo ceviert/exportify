@@ -4,8 +4,16 @@ venv/
 
 # vscode stuff
 .cache
+.vscode/
 
 # where your music will be saved
 Music/
 
-cookies.txt
+# compiler
+bin/
+obj/
+
+# chromedriver
+chromedriver.exe
+
+third_party/

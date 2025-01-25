@@ -108,7 +108,7 @@ def tag_mp3(mp3_path, artist, title, album, cover_art_path):
     audio.save()
     print(f"Tagged '{mp3_path}' with artist '{artist}', title '{title}', album '{album}', and cover art.", flush=True)
 
-plurl = input("provide the playlist url >> ")
+plurl = sys.argv[1]
 
 start_time = time.time()
 
@@ -130,7 +130,7 @@ while True:
         break
 print("analyzing done.", flush=True)
 
-plname = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.CLASS_NAME, "pl-name")))  # Replace with correct selector
+plname = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.CLASS_NAME, "pl-name")))
 print("playlist name is" , plname.text, flush=True)
 
 tempsongcount = driver.find_element(By.CLASS_NAME, 'total-tracks')
@@ -219,7 +219,7 @@ with open(songlist, "w", encoding="utf-8") as file:
 
 downloaded = []
 
-with open("songcache.json", "r") as file:
+with open("data/songcache.json", "r") as file:
     loaded_data = json.load(file)
 
 i = 0
@@ -236,7 +236,8 @@ for song, trackid in zip(namesandartists, trackids):
         continue
 
     if trackid in loaded_data:
-        videoId = loaded_data[trackid]
+      print(song + " ALREADY CACHED, DOWNLOADING...", flush=True)
+      videoId = loaded_data[trackid]
 
     else:
         ytm = ytmusicapi.YTMusic()
@@ -289,8 +290,6 @@ with open(songlist, "a", encoding="utf-8") as file:
 end_time = time.time()
 time_elapsed = end_time - start_time
 print("Time elapsed => " + str(time_elapsed) + " seconds.", flush=True)
-
-
 
 print("\033[1;32;40mDOWNLOADS ARE DONE. STARTING THE TAGGING PROCESS...\033[0m")
 

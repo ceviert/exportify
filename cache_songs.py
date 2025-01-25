@@ -11,6 +11,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 import ytmusicapi
 import json
+from unidecode import unidecode
 
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 
@@ -42,7 +43,7 @@ def get_album_id_from_track_id(track_id):
         print(f"Error fetching album ID: {e}", flush=True)
         return None
     
-plurl = input("provide the playlist url >> ", flush=True)
+plurl = sys.argv[1]
 
 start_time = time.time()
 
@@ -107,8 +108,8 @@ for element in album_elements:
 print("len(albumnames) = " + str(len(albumnames)), flush=True)
 
 for album in albumnames:
-    time.sleep(0.5)
-    # print("-> " + album.encode('ascii', 'ignore').decode('ascii'))
+    time.sleep(0.1)
+    print("-> " + unidecode(album), flush=True)
 
 albumcount = len(albumnames)
 
@@ -120,8 +121,8 @@ for element in trackidelements:
     trackids.append(element.text)
 
 for trackid in trackids:
-    time.sleep(0.5)
-    # print("-> " + trackid)
+    time.sleep(0.1)
+    print("-> " + unidecode(trackid), flush=True)
 
 namesandartists = []
 i = 0
@@ -134,7 +135,7 @@ time.sleep(2)
 
 videoIdList = []
 
-with open("songcache.json", "r") as file:
+with open("data/songcache.json", "r") as file:
     loaded_data = json.load(file)
 
 for song, trackid in zip(namesandartists, trackids):
@@ -161,7 +162,7 @@ for i, trackid in enumerate(trackids):
     if trackid not in loaded_data:
         loaded_data[trackid] = videoIdList[i]
 
-with open("songcache.json", "w") as file:
+with open("data/songcache.json", "w") as file:
     json.dump(loaded_data, file, indent=4)
 
 end_time = time.time()
