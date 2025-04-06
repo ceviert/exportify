@@ -12,7 +12,7 @@ void Menu::printMenu() {
   printCentered("6 - RUN AUTO CACHER", console_width_);
   printCentered("7 - REMOVE LINK", console_width_);
   printCentered("X - ABOUT ", console_width_);
-  printCentered("X - EXIT ", console_width_);
+  printCentered("9 - EXIT ", console_width_);
 }
 
 void Menu::startMenu() {
@@ -63,6 +63,12 @@ void Menu::startMenu() {
         std::cout << "RUNNING LINK REMOVER...\n";
         removeLink();
         saveToJson();
+        break;
+      case 8:
+        break;
+      case 9:
+        std::cout << "EXITING EXPORTIFY!\n";
+        terminate = true;
         break;
     }
   }
