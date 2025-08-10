@@ -11,7 +11,7 @@ void Menu::printMenu() {
   printCentered("5 - RUN AUTO DOWNLOADER", console_width_);
   printCentered("6 - RUN AUTO CACHER", console_width_);
   printCentered("7 - REMOVE LINK", console_width_);
-  printCentered("X - ABOUT ", console_width_);
+  printCentered("8 - ABOUT ", console_width_);
   printCentered("9 - EXIT ", console_width_);
 }
 
@@ -65,6 +65,8 @@ void Menu::startMenu() {
         saveToJson();
         break;
       case 8:
+        printAbout();
+        waitForInput();
         break;
       case 9:
         std::cout << "EXITING EXPORTIFY!\n";
@@ -192,4 +194,8 @@ void Menu::removeLink() {
       element.index--;
     }
   }
+}
+
+void Menu::printAbout() {
+  std::cout << "Made by ceviert@github" << std::endl;
 }

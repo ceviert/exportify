@@ -101,28 +101,22 @@ for element in tempforartist:
 album_elements = driver.find_elements(By.XPATH, '//*[@id="tracks-table"]/tbody/tr/td[8]')
 
 albumnames = []
-i = 0
+print("\n===ALBUM NAMES===")
 for element in album_elements:
     albumnames.append(element.text)
-
-print("len(albumnames) = " + str(len(albumnames)), flush=True)
-
-for album in albumnames:
     time.sleep(0.1)
-    print("-> " + unidecode(album), flush=True)
+    print("-> " + unidecode(element.text), flush=True)
 
 albumcount = len(albumnames)
 
 trackidelements = driver.find_elements(By.XPATH, '//*[@id="tracks-table"]/tbody/tr/td[22]')
 
 trackids = []
-i = 0
+print("\n===TRACK ID'S===")
 for element in trackidelements:
     trackids.append(element.text)
-
-for trackid in trackids:
     time.sleep(0.1)
-    print("-> " + unidecode(trackid), flush=True)
+    print("-> " + unidecode(element.text), flush=True)
 
 namesandartists = []
 i = 0

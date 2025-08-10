@@ -32,6 +32,7 @@ class Menu {
     void runCommand(const std::string& command);
     void waitForInput();
     void printMenu();
+    void printAbout();
     void printCentered(const std::string& text, int width);
   public:
     void startMenu();
