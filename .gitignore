@@ -6,14 +6,5 @@ venv/
 .cache
 .vscode/
 
-# where your music will be saved
-Music/
-
-# compiler
-bin/
-obj/
-
-# chromedriver
-chromedriver.exe
-
-third_party/
+**/__pycache__/
+*.py[cod]
