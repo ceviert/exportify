@@ -17,6 +17,13 @@ class SpotifyClient:
             )
         )
 
+    def get_pl_info(self, pl_id: str) -> dict:
+        response = self.sp.playlist(playlist_id=pl_id, fields="name, tracks.total")
+        return {
+            "playlist_name": response["name"],
+            "track_count": response["tracks"]["total"]
+        }
+
     def get_pl_items(self, pl_id: str) -> List[Dict]:
         results = []
         offset = 0
@@ -41,3 +48,11 @@ class SpotifyClient:
             }
             for item in results
         ]
+    
+    def get_pl_data(self, pl_id: str) -> dict:
+        pl_info = self.get_pl_info(pl_id)
+        pl_items = self.get_pl_items(pl_id)
+        return {
+            **pl_info,
+            "tracks": pl_items
+        }
