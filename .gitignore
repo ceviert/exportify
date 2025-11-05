@@ -1,5 +1,6 @@
 # ignore environment
 venv/
+.venv/
 .env
 
 # vscode stuff
