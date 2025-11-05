@@ -1,7 +1,3 @@
-from utils.logger import log
-from config import settings
-from spotify.client import SpotifyClient
+from pipeline import PIPE_TAG, run_pipeline
 
-sp = SpotifyClient()
-
-print(sp.get_pl_items("3cEYpjA9oz9GiPac4AsH4n"))
+run_pipeline(PIPE_TAG.CACHE_PLAYLIST, "3cEYpjA9oz9GiPac4AsH4n")

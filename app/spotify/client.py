@@ -41,4 +41,3 @@ class SpotifyClient:
             }
             for item in results
         ]
-

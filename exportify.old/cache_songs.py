@@ -28,9 +28,6 @@ ydl_opts = {
     # 'cookies': 'cookies.txt',
     # 'cookiesfrombrowser': (os.getenv("BROWSER_NAME"),)
 }
-
-def get_first_part_before_comma(input_string):
-    return input_string.split(',', 1)[0]
    
 plurl = sys.argv[1]
 
