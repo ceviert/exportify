@@ -31,18 +31,7 @@ ydl_opts = {
 
 def get_first_part_before_comma(input_string):
     return input_string.split(',', 1)[0]
-
-def get_album_id_from_track_id(track_id):
-    try:
-        # Fetch track details
-        track_info = sp.track(track_id)
-        # Retrieve and return the album ID
-        album_id = track_info['album']['id']
-        return album_id
-    except spotipy.exceptions.SpotifyException as e:
-        print(f"Error fetching album ID: {e}", flush=True)
-        return None
-    
+   
 plurl = sys.argv[1]
 
 start_time = time.time()
