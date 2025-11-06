@@ -14,12 +14,14 @@ def get_video_ids(spotify_data: dict) -> dict:
 
     for track in spotify_data:
         query = to_query(track)
+        log(f"the query is {query}")
         search_results = ytm.search(query)
         for result in search_results:
-            if isinstance(result, dict) and 'resultType' in result and result['resultType'] == 'song' and result['category'] in ['Songs', 'Top result']:
-                log(f"the query {query} brought back a result with the title {result['title']}, by {result['artists'][0]['name']} - https://www.youtube.com/watch?v={result['videoId']}")
+            if isinstance(result, dict) and 'resultType' in result and result['category'] in ['Songs', 'Top result', None] and result['resultType'] in ['song', 'video']:
+                log(f"[{track['name']} - {track['artist_name']}] => {result['title']} https://www.youtube.com/watch?v={result['videoId']}")
                 sp_yt_dict[track["id"]] = result['videoId']
                 log(f"matched {track["id"]} with {result['videoId']}")
                 log("-----------------------------------------------------------")
+                break
 
     return sp_yt_dict

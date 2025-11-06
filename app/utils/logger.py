@@ -1,4 +1,5 @@
 from datetime import datetime
+import time
 
 BLACK = '\033[30m'
 RED = '\033[31m'
@@ -21,3 +22,4 @@ RESET = '\033[0m'
 
 def log(msg):
     print(YELLOW, "[", datetime.now().strftime("%H:%M:%S"), "]", RESET, msg)
+    time.sleep(0.1)
