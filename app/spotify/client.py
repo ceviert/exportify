@@ -32,7 +32,7 @@ class SpotifyClient:
             response = self.sp.playlist_items(
                 playlist_id=pl_id,
                 offset=offset,
-                fields="items.track.id, items.track.name, items.track.artists.name"
+                fields="items.track.id,items.track.name,items.track.artists.name,items.track.album.name,items.track.album.images,items.track.duration_ms"
             )
             items = response.get("items", [])
             results.extend(items)
@@ -44,9 +44,12 @@ class SpotifyClient:
             {
                 "id": item["track"]["id"],
                 "name": item["track"]["name"],
-                "artist_name": ", ".join(a["name"] for a in item["track"]["artists"])
+                "artist_name": ", ".join(a["name"] for a in item["track"]["artists"]),
+                "album_name": item["track"]["album"]["name"] if item.get("track") and item["track"].get("album") else "",
+                "cover_url": item["track"]["album"]["images"][0]["url"] if item.get("track") and item["track"].get("album") and item["track"]["album"].get("images") else None,
+                "duration_ms": item["track"].get("duration_ms", 0)
             }
-            for item in results
+            for item in results if item and item.get("track") and item["track"].get("id")
         ]
     
     def get_pl_data(self, pl_id: str) -> dict:
