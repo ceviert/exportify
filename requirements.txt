@@ -6,7 +6,7 @@ python-dotenv==1.2.1
 redis==7.0.1
 requests==2.32.5
 spotipy==2.25.1
-urllib3==2.5.0
+urllib3==2.6.3
 ytmusicapi==1.11.1
 yt-dlp
 mutagen==1.47.0
