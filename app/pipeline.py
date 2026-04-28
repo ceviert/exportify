@@ -159,5 +159,8 @@ def sync_all():
                 pl_id = f.read().strip()
             if pl_id:
                 log(f"{BRIGHT_MAGENTA}=== Syncing Previously Downloaded Playlist: {folder_name} ==={RESET}")
-                downloader(pl_id)
-                log(f"{BRIGHT_GREEN}=== Finished Syncing: {folder_name} ==={RESET}\n")
+                try:
+                    downloader(pl_id)
+                    log(f"{BRIGHT_GREEN}=== Finished Syncing: {folder_name} ==={RESET}\n")
+                except Exception as e:
+                    log(f"{BRIGHT_YELLOW}=== Failed to sync {folder_name}: {e} ==={RESET}\n")
