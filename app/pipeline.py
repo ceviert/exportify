@@ -91,9 +91,12 @@ def downloader(pl_id: str):
             'no_warnings': True
         }
         
-        cookie_path = os.path.join(settings.save_dir or "data", "cookies.txt")
-        if os.path.exists("data/cookies.txt"):
-            ydl_opts['cookiefile'] = "data/cookies.txt"
+        cookie_path = "data/cookies.txt"
+        if os.path.exists(cookie_path):
+            ydl_opts['cookiefile'] = cookie_path
+            log(f"{BRIGHT_GREEN}Using cookies from {cookie_path} to bypass bot detection.{RESET}")
+        else:
+            log(f"{BRIGHT_YELLOW}WARNING: {cookie_path} is missing! You may encounter 'Sign in to confirm you're not a bot' errors. Please export YouTube cookies to data/cookies.txt.{RESET}")
         
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:

@@ -8,6 +8,12 @@ Exportify is a fully automated, Dockerized pipeline that clones your Spotify pla
 * **Global Sync:** Exportify remembers your playlists natively. The `sync` command organically scans your downloads folder and artificially pulls in missing new songs while deleting tracks that you've removed from your Spotify playlist.
 * **Smart Caching:** Local database queries prevent double-searching the same track twice.
 
+## 📋 Prerequisites
+
+Before running Exportify, ensure you have the following installed on your system:
+* [Docker](https://docs.docker.com/get-docker/)
+* [Docker Compose](https://docs.docker.com/compose/install/)
+
 ## 🚀 Setup
 
 1. Rename the `.env` template or create a new `.env` file in the root of the project.
