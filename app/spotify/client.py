@@ -5,6 +5,7 @@ from spotipy.oauth2 import SpotifyClientCredentials
 from typing import List, Dict
 
 from spotipy.cache_handler import CacheFileHandler
+from spotify.tracks import track_to_dict
 
 class SpotifyClient:
     def __init__(self):
@@ -15,10 +16,12 @@ class SpotifyClient:
 
         self.sp = spotipy.Spotify(
             auth_manager=SpotifyClientCredentials(
-                client_id=client_id, 
+                client_id=client_id,
                 client_secret=client_secret,
-                cache_handler=CacheFileHandler(cache_path="data/.spotipy_cache")
-            )
+                cache_handler=CacheFileHandler(cache_path=settings.spotipy_cache_path)
+            ),
+            retries=5,        # retry on connection errors
+            status_retries=3  # retry on 429/5xx responses (uses backoff)
         )
 
     def get_pl_info(self, pl_id: str) -> dict:
@@ -44,17 +47,7 @@ class SpotifyClient:
                 break
             offset += len(items)
 
-        return [
-            {
-                "id": item["track"]["id"],
-                "name": item["track"]["name"],
-                "artist_name": ", ".join(a["name"] for a in item["track"]["artists"]),
-                "album_name": item["track"]["album"]["name"] if item.get("track") and item["track"].get("album") else "",
-                "cover_url": item["track"]["album"]["images"][0]["url"] if item.get("track") and item["track"].get("album") and item["track"]["album"].get("images") else None,
-                "duration_ms": item["track"].get("duration_ms", 0)
-            }
-            for item in results if item and item.get("track") and item["track"].get("id")
-        ]
+        return [entry for entry in (track_to_dict(item) for item in results) if entry]
     
     def get_pl_data(self, pl_id: str) -> dict:
         pl_info = self.get_pl_info(pl_id)

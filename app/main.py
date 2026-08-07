@@ -1,11 +1,6 @@
 import argparse
 from pipeline import PIPE_TAG, run_pipeline
-
-def extract_playlist_id(playlist_str: str) -> str:
-    # If the user passed a full URL, e.g., https://open.spotify.com/playlist/0bFXt3PTlM32bRKGO6zh7p?si=123
-    if "spotify.com/playlist/" in playlist_str:
-        return playlist_str.split("spotify.com/playlist/")[1].split("?")[0]
-    return playlist_str
+from utils.urls import extract_playlist_id
 
 def main():
     parser = argparse.ArgumentParser(description="Exportify: Spotify to YouTube MP3 Downloader")
@@ -23,8 +18,14 @@ def main():
         required=False,
         help='One or more Spotify playlist IDs or full URLs.'
     )
-    
+    parser.add_argument(
+        '--no-refresh-cache',
+        action='store_true',
+        help='Skip refreshing the song cache before downloading. Only use if the cache is already up to date.'
+    )
+
     args = parser.parse_args()
+    refresh_cache = not args.no_refresh_cache
     
     if args.action == 'sync':
         run_pipeline(PIPE_TAG.SYNC_ALL, "")
@@ -40,7 +41,7 @@ def main():
         if args.action == 'cache':
             run_pipeline(PIPE_TAG.CACHE_PLAYLIST, pl_id)
         elif args.action == 'download':
-            run_pipeline(PIPE_TAG.DOWNLOAD_PLAYLIST, pl_id)
+            run_pipeline(PIPE_TAG.DOWNLOAD_PLAYLIST, pl_id, refresh_cache=refresh_cache)
 
 if __name__ == "__main__":
     main()

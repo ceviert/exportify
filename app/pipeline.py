@@ -1,10 +1,11 @@
 from enum import Enum
 import os
 import re
+import time
 import requests
 import yt_dlp
 from mutagen.mp3 import MP3
-from mutagen.id3 import ID3, TIT2, TPE1, TALB, APIC, error
+from mutagen.id3 import ID3, TIT2, TPE1, TALB, APIC, TXXX, error
 
 from utils.logger import log, BRIGHT_CYAN, BRIGHT_GREEN, BRIGHT_YELLOW, BRIGHT_MAGENTA, RESET
 from utils.json_controller import save_to_file, substract_the_database_from, merge_with_old_database, load_from_file
@@ -17,12 +18,12 @@ class PIPE_TAG(Enum):
     DOWNLOAD_PLAYLIST = 2
     SYNC_ALL = 3
 
-def run_pipeline(pipe_tag: PIPE_TAG, pl_id: str = ""):
+def run_pipeline(pipe_tag: PIPE_TAG, pl_id: str = "", refresh_cache: bool = True):
     match pipe_tag:
         case PIPE_TAG.CACHE_PLAYLIST:
             cacher(pl_id)
         case PIPE_TAG.DOWNLOAD_PLAYLIST:
-            downloader(pl_id)
+            downloader(pl_id, refresh_cache=refresh_cache)
         case PIPE_TAG.SYNC_ALL:
             sync_all()
         case _:
@@ -43,16 +44,55 @@ def cacher(pl_id: str):
     log(f"final_id_dict (LEN:{len(final_id_dict)})")
     save_to_file(final_id_dict, settings.cache_path)
 
-def downloader(pl_id: str):
-    # Ensure cache is up to date first
-    cacher(pl_id)
-    
+def _read_spotify_id(mp3_path: str):
+    """Read the Spotify track ID from an MP3's TXXX:spotify_id tag, or None."""
+    try:
+        audio = MP3(mp3_path, ID3=ID3)
+        if audio.tags is None:
+            return None
+        frames = audio.tags.getall("TXXX:spotify_id")
+        if frames:
+            return frames[0].text[0]
+    except Exception:
+        pass
+    return None
+
+
+def _resolve_mp3_path(save_dir: str, track_name_safe: str, track_id: str):
+    """Pick the MP3 path for this track, appending a numeric suffix on collisions.
+
+    The primary "Artist - Name.mp3" is returned unless it already belongs to a
+    different track (judged by the TXXX:spotify_id tag). Suffixed candidates are
+    skipped when they belong to a different track; the first free path, or the
+    one already tagged with this track id, is returned.
+    """
+    def slot(n: int) -> str:
+        if n == 1:
+            return os.path.join(save_dir, f"{track_name_safe}.mp3")
+        return os.path.join(save_dir, f"{track_name_safe} ({n}).mp3")
+
+    n = 1
+    while True:
+        candidate = slot(n)
+        if not os.path.exists(candidate):
+            return candidate
+        existing_id = _read_spotify_id(candidate)
+        if existing_id is None or existing_id == track_id:
+            return candidate  # already this track (or an untagged pre-tagging file)
+        n += 1
+
+
+def downloader(pl_id: str, refresh_cache: bool = True):
+    # Ensure cache is up to date first (unless the caller opts out)
+    if refresh_cache:
+        cacher(pl_id)
+
     sp = SpotifyClient()
     pl_data = sp.get_pl_data(pl_id)
     cache = load_from_file(settings.cache_path)
     
     pl_name_safe = re.sub(r'[<>:"/\\|.?*]', "", pl_data['playlist_name'])
-    save_dir = os.path.join(settings.save_dir or "downloads", pl_name_safe)
+    save_dir = os.path.join(settings.save_dir, pl_name_safe)
     os.makedirs(save_dir, exist_ok=True)
     
     # Store ID metadata to power future sync operations
@@ -70,18 +110,18 @@ def downloader(pl_id: str):
             
         video_url = f"https://music.youtube.com/watch?v={video_id}"
         track_name_safe = re.sub(r'[\\/*?:"<>|.İ]', "", f"{track['artist_name']} - {track['name']}")
-        mp3_name = f"{track_name_safe}.mp3"
-        mp3_path = os.path.join(save_dir, mp3_name)
+        mp3_path = _resolve_mp3_path(save_dir, track_name_safe, track['id'])
+        mp3_name = os.path.basename(mp3_path)
         valid_mp3_files.add(mp3_name)
-        
+
         if os.path.exists(mp3_path):
-            log(f"{BRIGHT_YELLOW}[{i}/{total}] Already downloaded:{RESET} {track_name_safe}.mp3")
+            log(f"{BRIGHT_YELLOW}[{i}/{total}] Already downloaded:{RESET} {mp3_name}")
             continue
-            
+
         log(f"{BRIGHT_CYAN}[{i}/{total}] Extracting Audio:{RESET} {track['name']} - {track['artist_name']}")
         ydl_opts = {
             'format': 'ba/bestaudio/best',
-            'outtmpl': os.path.join(save_dir, f"{track_name_safe}.%(ext)s"),
+            'outtmpl': os.path.join(save_dir, f"{os.path.splitext(mp3_name)[0]}.%(ext)s"),
             'postprocessors': [{
                 'key': 'FFmpegExtractAudio',
                 'preferredcodec': 'mp3',
@@ -91,18 +131,27 @@ def downloader(pl_id: str):
             'no_warnings': True
         }
         
-        cookie_path = "data/cookies.txt"
+        cookie_path = settings.cookies_path
         if os.path.exists(cookie_path):
             ydl_opts['cookiefile'] = cookie_path
             log(f"{BRIGHT_GREEN}Using cookies from {cookie_path} to bypass bot detection.{RESET}")
         else:
-            log(f"{BRIGHT_YELLOW}WARNING: {cookie_path} is missing! You may encounter 'Sign in to confirm you're not a bot' errors. Please export YouTube cookies to data/cookies.txt.{RESET}")
+            log(f"{BRIGHT_YELLOW}WARNING: {cookie_path} is missing! You may encounter 'Sign in to confirm you're not a bot' errors. Please export YouTube cookies to {settings.cookies_path}.{RESET}")
         
-        try:
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                ydl.download([video_url])
-        except Exception as e:
-            log(f"Failed to download {video_url}: {e}")
+        download_ok = False
+        for attempt in range(3):
+            try:
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                    ydl.download([video_url])
+                download_ok = True
+                break
+            except Exception as e:
+                if attempt == 2:
+                    log(f"Failed to download {video_url}: {e}")
+                else:
+                    log(f"Download failed for {video_url} (attempt {attempt + 1}/3): {e}. Retrying...")
+                    time.sleep(2 ** attempt)
+        if not download_ok:
             continue
             
         try:
@@ -117,7 +166,11 @@ def downloader(pl_id: str):
             
             if track.get('album_name'):
                 audio.tags["TALB"] = TALB(encoding=3, text=track['album_name'])
-            
+
+            # Hidden tag that records which Spotify track this file is, so future
+            # runs can tell an "already downloaded" file from a filename collision.
+            audio.tags["TXXX:spotify_id"] = TXXX(encoding=3, desc="spotify_id", text=track['id'])
+
             if track.get('cover_url'):
                 try:
                     img_response = requests.get(track['cover_url'], timeout=10)
@@ -149,7 +202,7 @@ def downloader(pl_id: str):
                 log(f"Failed to delete {existing_file}: {e}")
 
 def sync_all():
-    base_dir = settings.save_dir or "downloads"
+    base_dir = settings.save_dir
     if not os.path.exists(base_dir):
         log(f"{BRIGHT_YELLOW}No downloads directory found to sync.{RESET}")
         return
