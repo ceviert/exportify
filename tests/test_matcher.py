@@ -1,4 +1,4 @@
-from youtube.matcher import is_acceptable_match, match_reason, choose_song_match, to_query
+from youtube.matcher import is_acceptable_match, match_reason, choose_song_match, candidate_results, to_query
 
 
 def track(**overrides):
@@ -137,3 +137,46 @@ def test_choose_empty_results():
     assert result is None
     assert is_fallback is False
     assert rejected == []
+
+
+# --- candidate_results (alternatives after a failed download) ---
+
+def test_candidate_results_prioritizes_fully_gated_matches():
+    results = [
+        yt_result(videoId="v1", duration_seconds=268),  # exact, within margin
+        yt_result(videoId="v2", duration_seconds=270),  # within margin
+        yt_result(videoId="far", duration_seconds=350),  # duration fallback
+    ]
+    ids = [r["videoId"] for r in candidate_results(track(), results)]
+    assert ids == ["v1", "v2", "far"]
+
+
+def test_candidate_results_excludes_tried_ids():
+    results = [yt_result(videoId="v1"), yt_result(videoId="v2")]
+    ids = [r["videoId"] for r in candidate_results(track(), results, exclude_ids=["v1"])]
+    assert ids == ["v2"]
+
+
+def test_candidate_results_sorts_duration_fallback_by_closeness():
+    results = [
+        yt_result(videoId="far", duration_seconds=350),
+        yt_result(videoId="closer", duration_seconds=300),
+        yt_result(videoId="best", duration_seconds=268),
+    ]
+    ids = [r["videoId"] for r in candidate_results(track(), results)]
+    assert ids == ["best", "closer", "far"]
+
+
+def test_candidate_results_skips_irrelevant_results():
+    results = [yt_result(videoId="v1", title="Man in the Box (Live)")]
+    assert candidate_results(track(), results) == []
+
+
+def test_candidate_results_skips_ids_that_already_failed_and_rejects_live():
+    results = [
+        yt_result(videoId="blocked", duration_seconds=268),
+        yt_result(videoId="live", title="Man in the Box (Live)"),
+        yt_result(videoId="alt", duration_seconds=270),
+    ]
+    ids = [r["videoId"] for r in candidate_results(track(), results, exclude_ids=["blocked"])]
+    assert ids == ["alt"]

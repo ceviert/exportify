@@ -10,7 +10,7 @@ from mutagen.id3 import ID3, TIT2, TPE1, TALB, APIC, TXXX, error
 from utils.logger import log, BRIGHT_CYAN, BRIGHT_GREEN, BRIGHT_YELLOW, BRIGHT_MAGENTA, RESET
 from utils.json_controller import save_to_file, substract_the_database_from, merge_with_old_database, load_from_file
 from spotify.client import SpotifyClient
-from youtube.client import get_video_ids
+from youtube.client import get_video_ids, find_alternative_results
 from config import settings
 
 class PIPE_TAG(Enum):
@@ -82,6 +82,54 @@ def _resolve_mp3_path(save_dir: str, track_name_safe: str, track_id: str):
         n += 1
 
 
+def _download_video(video_id: str, ydl_opts: dict) -> bool:
+    """Attempt to download a video with yt-dlp, retrying up to 3 times.
+
+    Returns True only if the download (and any yt-dlp postprocessing) succeeded.
+    """
+    video_url = f"https://music.youtube.com/watch?v={video_id}"
+    for attempt in range(3):
+        try:
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                ydl.download([video_url])
+            return True
+        except Exception as e:
+            if attempt == 2:
+                log(f"Failed to download {video_url}: {e}")
+            else:
+                log(f"Download failed for {video_url} (attempt {attempt + 1}/3): {e}. Retrying...")
+                time.sleep(2 ** attempt)
+    return False
+
+
+def _find_alternative(track: dict, failed_video_id: str):
+    """Find the best alternative YouTube match for a failed download.
+
+    Returns the top-ranked acceptable candidate's video id, or None if there
+    are none. The chosen candidate (and any others left) are logged so a
+    skipped or failed fallback can be diagnosed.
+    """
+    try:
+        candidates = find_alternative_results(track, exclude_ids=[failed_video_id])
+    except Exception as e:
+        log(f"Failed to search alternatives for '{track['name']}': {e}")
+        return None
+
+    if not candidates:
+        log(f"No alternative matches found for '{track['name']}'.")
+        return None
+
+    best = candidates[0]
+    artists = best.get("artists") or []
+    artist = ", ".join(a.get("name", "") for a in artists if isinstance(a, dict) and a.get("name")) or "?"
+    log(f"{BRIGHT_CYAN}Download failed for '{track['name']}'. "
+        f"Trying alternative match:{RESET} '{best.get('title')}' by {artist} (video {best['videoId']})")
+    if len(candidates) > 1:
+        names = ", ".join(f"'{c.get('title')}' ({c['videoId']})" for c in candidates[1:])
+        log(f"{BRIGHT_YELLOW}Other alternatives available:{RESET} {names}")
+    return best["videoId"]
+
+
 def downloader(pl_id: str, refresh_cache: bool = True):
     # Ensure cache is up to date first (unless the caller opts out)
     if refresh_cache:
@@ -108,7 +156,6 @@ def downloader(pl_id: str, refresh_cache: bool = True):
             log(f"Warning: {track['name']} not found in cache. Skipping.")
             continue
             
-        video_url = f"https://music.youtube.com/watch?v={video_id}"
         track_name_safe = re.sub(r'[\\/*?:"<>|.İ]', "", f"{track['artist_name']} - {track['name']}")
         mp3_path = _resolve_mp3_path(save_dir, track_name_safe, track['id'])
         mp3_name = os.path.basename(mp3_path)
@@ -138,19 +185,21 @@ def downloader(pl_id: str, refresh_cache: bool = True):
         else:
             log(f"{BRIGHT_YELLOW}WARNING: {cookie_path} is missing! You may encounter 'Sign in to confirm you're not a bot' errors. Please export YouTube cookies to {settings.cookies_path}.{RESET}")
         
-        download_ok = False
-        for attempt in range(3):
-            try:
-                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                    ydl.download([video_url])
-                download_ok = True
-                break
-            except Exception as e:
-                if attempt == 2:
-                    log(f"Failed to download {video_url}: {e}")
-                else:
-                    log(f"Download failed for {video_url} (attempt {attempt + 1}/3): {e}. Retrying...")
-                    time.sleep(2 ** attempt)
+        download_ok = _download_video(video_id, ydl_opts)
+        if not download_ok:
+            # The primary video is unrecoverable (e.g. an age-gated upload).
+            # Try the best alternative match from a fresh search; the picked
+            # candidate is logged by _find_alternative.
+            alt_id = _find_alternative(track, video_id)
+            if alt_id:
+                # Clear any partial file the failed download may have left.
+                if os.path.exists(mp3_path):
+                    os.remove(mp3_path)
+                download_ok = _download_video(alt_id, ydl_opts)
+                if download_ok:
+                    cache[track['id']] = alt_id
+                    save_to_file(cache, settings.cache_path)
+                    log(f"{BRIGHT_GREEN}Cache updated:{RESET} {track['name']} -> video {alt_id}")
         if not download_ok:
             continue
             

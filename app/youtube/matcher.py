@@ -84,3 +84,30 @@ def choose_song_match(track: dict, results: list):
             best, best_delta = result, delta
 
     return best, best is not None, rejected
+
+
+def candidate_results(track: dict, results: list, exclude_ids=None) -> list:
+    """Return acceptable search results in priority order, skipping tried ids.
+
+    Fully-gated matches come first (in search order), then duration-fallback
+    candidates ordered by closeness to the Spotify duration. Used to offer an
+    alternative when the primary video fails to download (e.g. an age-gated
+    upload), so the caller never re-offers an id that already failed.
+    """
+    exclude = set(exclude_ids or [])
+    good, fallback = [], []
+
+    for result in results:
+        if not isinstance(result, dict) or not result.get("videoId"):
+            continue
+        if result["videoId"] in exclude:
+            continue
+        reason = match_reason(track, result)
+        if reason is None:
+            good.append(result)
+        elif reason.startswith("duration mismatch"):
+            fallback.append(result)
+
+    sp_dur_sec = (track.get("duration_ms") or 0) / 1000
+    fallback.sort(key=lambda r: abs(sp_dur_sec - (r.get("duration_seconds") or 0)))
+    return good + fallback

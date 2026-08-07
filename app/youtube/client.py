@@ -3,7 +3,7 @@ from collections import Counter
 import ytmusicapi
 
 from utils.logger import log, BRIGHT_CYAN, BRIGHT_MAGENTA, BRIGHT_GREEN, BRIGHT_YELLOW, RESET
-from youtube.matcher import to_query, choose_song_match
+from youtube.matcher import to_query, choose_song_match, candidate_results
 
 
 def get_video_ids(spotify_data: dict) -> dict:
@@ -36,3 +36,16 @@ def get_video_ids(spotify_data: dict) -> dict:
         log("-----------------------------------------------------------")
 
     return sp_yt_dict
+
+
+def find_alternative_results(track: dict, exclude_ids=None) -> list:
+    """Search YouTube Music for a track and return acceptable candidates.
+
+    Candidates are ordered by priority (fully-gated first, then closest
+    duration-fallback), with any already-tried video ids excluded. Used to offer
+    an alternative when the cached match fails to download.
+    """
+    ytm = ytmusicapi.YTMusic()
+    query = to_query(track)
+    results = ytm.search(query, filter="songs")
+    return candidate_results(track, results, exclude_ids=exclude_ids)
