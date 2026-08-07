@@ -17,12 +17,22 @@ Before running Exportify, ensure you have the following installed on your system
 ## 🚀 Setup
 
 1. Rename the `.env` template or create a new `.env` file in the root of the project.
-2. Provide your official [Spotify Developer](https://developer.spotify.com/dashboard/) credentials:
+2. **No Spotify developer credentials needed by default.** Playlists are read
+   through Spotify's anonymous web-player token:
+```env
+CACHE_PATH="data/songcache.json"
+```
+3. On networks that block that anonymous endpoint (some ISPs/regions), Exportify
+   automatically falls back to developer credentials if you set them:
 ```env
 SPOTIFY_CLIENT_ID="your_spotify_client_id_here"
 SPOTIFY_CLIENT_SECRET="your_spotify_client_secret_here"
-CACHE_PATH="data/songcache.json"
 ```
+   `SPOTIFY_AUTH` controls the mode: `auto` (default — anonymous, then
+   credentials), `anonymous`, or `credentials`.
+
+> Note: both access paths only read **public** playlists. Private playlists are
+> not supported.
 
 ## 💻 Usage
 
